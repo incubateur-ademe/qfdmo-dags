@@ -5,14 +5,13 @@ from airflow.operators.python import PythonOperator
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 
 from utils.utils import load_table, normalize_nom, normalize_url, normalize_email, normalize_phone_number, \
-
     apply_normalization, save_to_database
 
 
 def normalize_data():
 
     # Setup the PostgresHook connection
-    pg_hook = PostgresHook(postgres_conn_id='your_connection_id')
+    pg_hook = PostgresHook(postgres_conn_id='lvao-preprod')
 
     # Use the hook to get the engine
     engine = pg_hook.get_sqlalchemy_engine()
