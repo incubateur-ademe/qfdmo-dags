@@ -12,13 +12,13 @@ def read_data_from_postgres():
     return df
 
 def apply_address_normalization(**kwargs):
-    df = kwargs['ti'].xcom_pull(task_ids='read_data_from_postgres')
-    normalization_map = {"adresse": normalize_nom, "adresse_complement": normalize_nom}
+    df = kwargs['ti'].xcom_pull(task_ids='read_imported_actors')
+    normalization_map = {"address": normalize_nom, "adresse_complement": normalize_nom}
     df_normalized = apply_normalization(df, normalization_map)
     return df_normalized
 
 def apply_other_normalizations(**kwargs):
-    df = kwargs['ti'].xcom_pull(task_ids='apply_address_normalization')
+    df = kwargs['ti'].xcom_pull(task_ids='BAN_normalization')
     columns_to_exclude = ["identifiant_unique", "statut", "cree_le", "modifie_le"]
     normalization_map = {
         "nom": normalize_nom,
@@ -32,7 +32,7 @@ def apply_other_normalizations(**kwargs):
     return df_cleaned
 
 def write_data_to_postgres(**kwargs):
-    df_cleaned = kwargs['ti'].xcom_pull(task_ids='apply_other_normalizations')
+    df_cleaned = kwargs['ti'].xcom_pull(task_ids='other_normalizations')
     pg_hook = PostgresHook(postgres_conn_id='lvao-preprod')
     engine = pg_hook.get_sqlalchemy_engine()
     save_to_database(df_cleaned, "lvao_actors_processed", engine)
@@ -48,7 +48,7 @@ default_args = {
 }
 
 dag = DAG(
-    'lvao_data_normalization_v2',
+    'imported_actors_preprocessing',
     default_args=default_args,
     description='Enhanced DAG for normalizing and saving LVAO actors data with address normalization',
     schedule_interval=None,
