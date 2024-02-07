@@ -48,7 +48,7 @@ dag = DAG(
     'lvao_data_normalization',
     default_args=default_args,
     description='DAG for normalizing LVAO actors data',
-    schedule_interval=timedelta(days=1),
+    schedule_interval=None,
 )
 
 t1 = PythonOperator(
