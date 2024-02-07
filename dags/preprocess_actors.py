@@ -4,7 +4,7 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 
-from dags.utils.utils import load_table, normalize_nom, normalize_url, normalize_email, normalize_phone_number, \
+from utils.utils import load_table, normalize_nom, normalize_url, normalize_email, normalize_phone_number, \
     apply_normalization, save_to_database
 
 
