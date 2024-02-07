@@ -59,7 +59,7 @@ def apply_normalization(df, normalization_map):
     """
     # print(df['adresse'])
 
-    #df = normalize_address(df)
+    # df = normalize_address(df)
     #   print(df['adresse'])
     for column, normalize_func in normalization_map.items():
         if column in df.columns:
@@ -183,3 +183,62 @@ def normalize_url(url):
     except Exception as e:
         print(f"Error parsing URL {url}: {e}")
         return None
+
+
+def find_differences(
+        df_act, df_rev_act, columns_to_exclude, normalization_map
+):
+    # Join the DataFrames on 'identifiant_unique'
+    df_merged = pd.merge(
+        df_act, df_rev_act, on="identifiant_unique", suffixes=("_act", "_rev_act")
+    )
+    df_merged["code_postal_act"] = pd.to_numeric(
+        df_merged["code_postal_act"], errors="coerce"
+    ).astype(pd.Int64Dtype())
+    df_merged["code_postal_rev_act"] = pd.to_numeric(
+        df_merged["code_postal_rev_act"], errors="coerce"
+    ).astype(pd.Int64Dtype())
+
+    suffixes = ["_act", "_rev_act"]
+
+    # Apply the functions to the respective columns
+    for base_col, func in normalization_map.items():
+        for suffix in suffixes:
+            col = base_col + suffix
+            if col in df_merged.columns:
+                df_merged[col] = df_merged[col].apply(func)
+            else:
+                print(f"Column {col} not found in DataFrame.")
+    # Initialize a DataFrame to hold the differences
+    df_differences = pd.DataFrame()
+    df_differences["identifiant_unique"] = df_merged["identifiant_unique"]
+
+    columns_to_exclude = columns_to_exclude
+
+    for col in df_act.columns:
+        if col not in columns_to_exclude:
+            # Define the column names for act and rev_act
+            col_act = col + "_act"
+            col_rev_act = col + "_rev_act"
+
+            # Create masks for non-empty and differing values
+            mask_non_empty = (
+                    df_merged[col_rev_act].notnull()
+                    & (df_merged[col_act] != "")
+                    & (df_merged[col_rev_act] != "")
+            )
+            mask_different = df_merged[col_act] != df_merged[col_rev_act]
+
+            # Apply masks and add to df_differences
+            df_differences[col] = df_merged[col_rev_act].where(
+                mask_non_empty & mask_different, None
+            )
+
+    # Remove rows where all elements are None (no differences found)
+    df_differences = df_differences.dropna(
+        how="all",
+        subset=[
+            col for col in df_differences.columns if col != "identifiant_unique"
+        ],
+    )
+    return df_differences
