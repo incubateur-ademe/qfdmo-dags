@@ -59,7 +59,7 @@ def apply_normalization(df, normalization_map):
     """
     # print(df['adresse'])
 
-    df = normalize_address(df)
+    #df = normalize_address(df)
     #   print(df['adresse'])
     for column, normalize_func in normalization_map.items():
         if column in df.columns:
