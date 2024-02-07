@@ -1,38 +1,41 @@
 from datetime import datetime, timedelta
-
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.providers.postgres.hooks.postgres import PostgresHook
-
 from utils.utils import load_table, normalize_nom, normalize_url, normalize_email, normalize_phone_number, \
     apply_normalization, save_to_database
 
-
-def normalize_data():
-
-    # Setup the PostgresHook connection
+def read_data_from_postgres():
     pg_hook = PostgresHook(postgres_conn_id='lvao-preprod')
-
-    # Use the hook to get the engine
     engine = pg_hook.get_sqlalchemy_engine()
+    df = load_table("qfdmo_acteur", engine)
+    return df
 
-    df_act = load_table("qfdmo_acteur", engine)
+def apply_address_normalization(**kwargs):
+    df = kwargs['ti'].xcom_pull(task_ids='read_data_from_postgres')
+    normalization_map = {"adresse": normalize_nom, "adresse_complement": normalize_nom}
+    df_normalized = apply_normalization(df, normalization_map)
+    return df_normalized
 
+def apply_other_normalizations(**kwargs):
+    df = kwargs['ti'].xcom_pull(task_ids='apply_address_normalization')
     columns_to_exclude = ["identifiant_unique", "statut", "cree_le", "modifie_le"]
     normalization_map = {
         "nom": normalize_nom,
         "nom_commercial": normalize_nom,
         "ville": normalize_nom,
         "url": normalize_url,
-        "adresse": normalize_nom,
-        "adresse_complement": normalize_nom,
         "email": normalize_email,
         "telephone": normalize_phone_number,
     }
+    df_cleaned = apply_normalization(df, normalization_map)
+    return df_cleaned
 
-    df_act_cleaned = apply_normalization(df_act, normalization_map)
-
-    save_to_database(df_act_cleaned, "lvao_actors_processed",engine)
+def write_data_to_postgres(**kwargs):
+    df_cleaned = kwargs['ti'].xcom_pull(task_ids='apply_other_normalizations')
+    pg_hook = PostgresHook(postgres_conn_id='lvao-preprod')
+    engine = pg_hook.get_sqlalchemy_engine()
+    save_to_database(df_cleaned, "lvao_actors_processed", engine)
 
 default_args = {
     'owner': 'airflow',
@@ -45,16 +48,37 @@ default_args = {
 }
 
 dag = DAG(
-    'lvao_data_normalization',
+    'lvao_data_normalization_v2',
     default_args=default_args,
-    description='DAG for normalizing LVAO actors data',
+    description='Enhanced DAG for normalizing and saving LVAO actors data with address normalization',
     schedule_interval=None,
 )
 
 t1 = PythonOperator(
-    task_id='normalize_and_save_data',
-    python_callable=normalize_data,
+    task_id='read_imported_actors',
+    python_callable=read_data_from_postgres,
     dag=dag,
 )
 
+t2 = PythonOperator(
+    task_id='BAN_normalization',
+    python_callable=apply_address_normalization,
+    provide_context=True,
+    dag=dag,
+)
 
+t3 = PythonOperator(
+    task_id='other_normalizations',
+    python_callable=apply_other_normalizations,
+    provide_context=True,
+    dag=dag,
+)
+
+t4 = PythonOperator(
+    task_id='write_data_to_postgres',
+    python_callable=write_data_to_postgres,
+    provide_context=True,
+    dag=dag,
+)
+
+t1 >> t2 >> t3 >> t4
