@@ -47,3 +47,15 @@ Contact
 =======
 
 The Astronomer CLI is maintained with love by the Astronomer team. To report a bug or suggest a change, reach out to our support.
+
+
+Scaleway
+========
+
+- create instance (ubuntu)
+- assign ssh key
+- log in instance : as root `ssh root@....`
+- install docker and compose https://docs.docker.com/engine/install/ubuntu/
+- clone this repo (git clone https...)
+- `echo -e "AIRFLOW_UID=$(id -u)" > .env`
+- `docker compose up -d`
