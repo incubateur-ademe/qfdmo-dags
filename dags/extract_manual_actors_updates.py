@@ -41,7 +41,7 @@ def save_results_to_database(**kwargs):
     df_cleaned = kwargs['ti'].xcom_pull(task_ids='normalize_and_find_differences')
     pg_hook = PostgresHook(postgres_conn_id='lvao-preprod')
     engine = pg_hook.get_sqlalchemy_engine()
-    save_to_database(df_cleaned, "lvao_manual_actors_updates", engine)
+    save_to_database(df_cleaned, "qfdmo_manual_actors_updates", engine)
 
 
 default_args = {

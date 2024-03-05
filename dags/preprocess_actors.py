@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.providers.postgres.hooks.postgres import PostgresHook
+import sys
 
 from utils.utils import load_table, normalize_nom, normalize_url, normalize_email, normalize_phone_number, \
     apply_normalization, save_to_database
@@ -40,7 +41,7 @@ def write_data_to_postgres(**kwargs):
     df_cleaned = kwargs['ti'].xcom_pull(task_ids='other_normalizations')
     pg_hook = PostgresHook(postgres_conn_id='lvao-preprod')
     engine = pg_hook.get_sqlalchemy_engine()
-    save_to_database(df_cleaned, "lvao_actors_processed", engine)
+    save_to_database(df_cleaned, "qfdmo_actors_processed", engine)
 
 
 default_args = {
