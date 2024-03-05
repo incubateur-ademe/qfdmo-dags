@@ -9,14 +9,14 @@ FROM apache/airflow:2.8.2
 # COPY ./logs /opt/airflow/logs
 # COPY ./config /opt/airflow/config
 # COPY ./plugins /opt/airflow/plugins
-COPY ./airflow-init.sh .
+# COPY ./airflow-init.sh .
 
-RUN chmod +x airflow-init.sh
-RUN ./airflow-init.sh
+# RUN ./airflow-init.sh
 
 # Use user airflow
 RUN chown -R ${AIRFLOW_UID:-50000}:0 /opt/airflow
 USER ${AIRFLOW_UID:-50000}:0
+EXPOSE 8080
 
 # Start the web server on port 8080
-CMD ["webserver"]
+CMD ["webserver", "--port", "8080"]
