@@ -3,7 +3,7 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from sqlalchemy import MetaData
-
+import pandas as pd
 from utils.utils import load_table, save_to_database
 
 
@@ -26,11 +26,20 @@ def apply_corrections(**kwargs):
 
     return df_normalized_actors.reset_index()
 
+def apply_corrections_ps(**kwargs):
+    df_propositionservice = kwargs['ti'].xcom_pull(task_ids='read_imported_propositionservice')
+    df_manual_propositionservice_updates = kwargs['ti'].xcom_pull(task_ids='load_manual_propositionservice_updates')
+
+    new_df = pd.concat([df_propositionservice, df_manual_propositionservice_updates]).drop_duplicates(
+        subset=['acteur_service_id', 'action_id', 'acteur_id'])
+
+    return new_df
+
 
 
 def write_data_to_postgres(**kwargs):
     df_normalized_corrected_actors = kwargs['ti'].xcom_pull(task_ids='apply_corrections')
-    df_proposition_services = kwargs['ti'].xcom_pull(task_ids='read_imported_proposition_de_services')
+    df_proposition_services = kwargs['ti'].xcom_pull(task_ids='apply_corrections_ps')
 
     pg_hook = PostgresHook(postgres_conn_id='lvao-preprod')
     engine = pg_hook.get_sqlalchemy_engine()
@@ -78,9 +87,9 @@ default_args = {
 }
 
 dag = DAG(
-    'create_final_actors',
+    'create_displayed_actors_and_propositionservice',
     default_args=default_args,
-    description='DAG for applying correction on normalized actors',
+    description='DAG for applying correction on normalized actors and propositionservice',
     schedule_interval=None,
 )
 
@@ -92,7 +101,7 @@ t1 = PythonOperator(
 )
 
 t1_bis = PythonOperator(
-    task_id='read_imported_proposition_de_services',
+    task_id='read_imported_propositionservice',
     python_callable=read_data_from_postgres,
     op_kwargs={"table_name": "qfdmo_propositionservice"},
     dag=dag,
@@ -106,10 +115,24 @@ t2 = PythonOperator(
     dag=dag,
 )
 
+t2_bis = PythonOperator(
+    task_id='load_manual_propositionservice_updates',
+    python_callable=read_data_from_postgres,
+    op_kwargs={"table_name": "qfdmo_manual_propositionservice_updates"},
+    dag=dag,
+)
+
 
 t3 = PythonOperator(
     task_id='apply_corrections',
     python_callable=apply_corrections,
+    provide_context=True,
+    dag=dag,
+)
+
+t3_bis = PythonOperator(
+    task_id='apply_corrections_ps',
+    python_callable=apply_corrections_ps,
     provide_context=True,
     dag=dag,
 )
@@ -121,4 +144,7 @@ t4 = PythonOperator(
     dag=dag,
 )
 
-[t1, t2, t1_bis] >> t3 >> t4
+[t1, t2 ] >> t3
+[t1_bis, t2_bis] >> t3_bis
+[t3, t3_bis] >> t4
+
