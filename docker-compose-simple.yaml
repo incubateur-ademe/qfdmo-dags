@@ -55,8 +55,6 @@ x-airflow-common:
     &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
-    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres/airflow
-    AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
     AIRFLOW__CORE__FERNET_KEY: ''
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
@@ -71,11 +69,11 @@ x-airflow-common:
     # WARNING: Use _PIP_ADDITIONAL_REQUIREMENTS option ONLY for a quick checks
     # for other purpose (development, test and especially production usage) build/extend Airflow image.
     _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:-}
-  volumes:
-    - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
-    - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
-    - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
-    - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
+  # volumes:
+  #   - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
+  #   - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
+  #   - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
+  #   - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
     &airflow-common-depends-on
@@ -123,12 +121,12 @@ services:
       _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
       _PIP_ADDITIONAL_REQUIREMENTS: ''
     user: "0:0"
-    volumes:
-      - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
-      - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
-      - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
-      - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
-      - ${AIRFLOW_PROJ_DIR:-.}/sources:/sources
+    # volumes:
+    #   - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
+    #   - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
+    #   - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
+    #   - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
+    #   - ${AIRFLOW_PROJ_DIR:-.}/sources:/sources
 
     build:
       context: .
@@ -158,6 +156,8 @@ services:
       timeout: 10s
       retries: 5
       start_period: 30s
+    # volumes:
+    #   - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
     restart: always
     depends_on:
       <<: *airflow-common-depends-on

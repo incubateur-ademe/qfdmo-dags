@@ -13,13 +13,7 @@ RUN mkdir -p /opt/airflow/logs/
 
 EXPOSE 8080
 
-RUN echo "======================="
-RUN echo "======================="
-RUN echo "======================="
-RUN echo "WEBSERVER --port 8080"
-RUN echo "======================="
-RUN echo "======================="
-RUN echo "======================="
+RUN echo "STARTING WEBSERVER --port 8080"
 
 # Start the web server on port 8080
 CMD ["webserver", "--port", "8080"]
