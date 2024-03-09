@@ -60,6 +60,11 @@ x-airflow-common:
     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
     AIRFLOW__CORE__ENABLE_XCOM_PICKLING: 'true'
     AIRFLOW__WEBSERVER__EXPOSE_CONFIG: 'true'
+    AIRFLOW__WEBSERVER__WORKERS: '2'
+    AIRFLOW__LOGGING__REMOTE_LOGGING: 'true'
+    AIRFLOW__LOGGING__REMOTE_BASE_LOG_FOLDER: "s3://qfdmo-airflow-logs"
+    AIRFLOW__LOGGING__REMOTE_LOG_CONN_ID: 's3logs'
+    AIRFLOW__LOGGING__ENCRYPT_S3_LOGS: "false"
     AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session'
     # yamllint disable rule:line-length
     # Use simple http server on scheduler for health checks
@@ -69,9 +74,9 @@ x-airflow-common:
     # WARNING: Use _PIP_ADDITIONAL_REQUIREMENTS option ONLY for a quick checks
     # for other purpose (development, test and especially production usage) build/extend Airflow image.
     _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:-}
-  # volumes:
+  volumes:
+    - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
   #   - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
-  #   - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
   #   - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
   #   - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
   user: "${AIRFLOW_UID:-50000}:0"
@@ -121,13 +126,6 @@ services:
       _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
       _PIP_ADDITIONAL_REQUIREMENTS: ''
     user: "0:0"
-    # volumes:
-    #   - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
-    #   - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
-    #   - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
-    #   - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
-    #   - ${AIRFLOW_PROJ_DIR:-.}/sources:/sources
-
     build:
       context: .
       dockerfile: airflow-webserver.Dockerfile
@@ -156,8 +154,6 @@ services:
       timeout: 10s
       retries: 5
       start_period: 30s
-    # volumes:
-    #   - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
     restart: always
     depends_on:
       <<: *airflow-common-depends-on
