@@ -32,6 +32,8 @@ def apply_corrections_ps(**kwargs):
 
     new_df = pd.concat([df_propositionservice, df_manual_propositionservice_updates]).drop_duplicates(
         subset=['acteur_service_id', 'action_id', 'acteur_id'])
+    new_df['acteur_id'] = new_df['acteur_id'].fillna(new_df['revision_acteur_id'])
+    new_df.drop(columns=['revision_acteur_id'], inplace=True)
 
     return new_df
 
@@ -40,7 +42,6 @@ def apply_corrections_ps(**kwargs):
 def write_data_to_postgres(**kwargs):
     df_normalized_corrected_actors = kwargs['ti'].xcom_pull(task_ids='apply_corrections')
     df_proposition_services = kwargs['ti'].xcom_pull(task_ids='apply_corrections_ps')
-
     pg_hook = PostgresHook(postgres_conn_id='lvao-preprod')
     engine = pg_hook.get_sqlalchemy_engine()
    
@@ -51,9 +52,9 @@ def write_data_to_postgres(**kwargs):
     temp_table_name_ps = 'qfdmo_displayedpropositionservicetemp'
 
 
-    with engine.begin() as conn:
-        conn.execute(f'DELETE FROM {temp_table_name_actor}')
+    with engine.connect() as conn:
         conn.execute(f'DELETE FROM {temp_table_name_ps}')
+        conn.execute(f'DELETE FROM {temp_table_name_actor}')
 
 
         df_normalized_corrected_actors[['identifiant_unique', 'nom', 'adresse', 'adresse_complement',
@@ -61,9 +62,12 @@ def write_data_to_postgres(**kwargs):
        'multi_base', 'nom_commercial', 'nom_officiel', 'manuel',
        'label_reparacteur', 'siret', 'identifiant_externe', 'acteur_type_id',
        'statut', 'source_id', 'cree_le', 'modifie_le', 'naf_principal',
-       'commentaires', 'horaires', 'description']].to_sql(temp_table_name_actor, engine, if_exists='append', index=False)
+       'commentaires', 'horaires', 'description']].to_sql(temp_table_name_actor, engine, if_exists='append', index=False,
+                                              method='multi', chunksize=1000)
 
-        df_proposition_services.to_sql(temp_table_name_ps,engine, if_exists='append',index=False)
+
+        df_proposition_services[['id', 'acteur_service_id', 'action_id', 'acteur_id']].to_sql(temp_table_name_ps, engine, if_exists='append', index=False, method='multi',
+                                      chunksize=1000)
 
         conn.execute(f'ALTER TABLE {original_table_name_actor} RENAME TO {original_table_name_actor}_old')
         conn.execute(f'ALTER TABLE {temp_table_name_actor} RENAME TO {original_table_name_actor}')
