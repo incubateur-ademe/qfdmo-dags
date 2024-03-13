@@ -1,49 +1,62 @@
-Overview
-========
+# Que faire de mes objets - Data Platform
 
-Welcome to Astronomer! This project was generated after you ran 'astro dev init' using the Astronomer CLI. This readme describes the contents of the project, as well as how to run Apache Airflow on your local machine.
+Ce projet contient l'environnement d'execution d'Airflow et les DAGs qui sont exécutés sur Airflow
 
-Project Contents
-================
+## Lancement de Airflow en local
 
-Your Astro project contains the following files and folders:
+Executer docker compose:
 
-- dags: This folder contains the Python files for your Airflow DAGs. By default, this directory includes two example DAGs:
-    - `example_dag_basic`: This DAG shows a simple ETL data pipeline example with three TaskFlow API tasks that run daily.
-    - `example_dag_advanced`: This advanced DAG showcases a variety of Airflow features like branching, Jinja templates, task groups and several Airflow operators.
-- Dockerfile: This file contains a versioned Astro Runtime Docker image that provides a differentiated Airflow experience. If you want to execute other commands or overrides at runtime, specify them here.
-- include: This folder contains any additional files that you want to include as part of your project. It is empty by default.
-- packages.txt: Install OS-level packages needed for your project by adding them to this file. It is empty by default.
-- requirements.txt: Install Python packages needed for your project by adding them to this file. It is empty by default.
-- plugins: Add custom or community plugins for your project to this file. It is empty by default.
-- airflow_settings.yaml: Use this local-only file to specify Airflow Connections, Variables, and Pools instead of entering them in the Airflow UI as you develop DAGs in this project.
+```sh
+docker compose up
+```
 
-Deploy Your Project Locally
-===========================
+docker compose lancera :
 
-1. Start Airflow on your local machine by running 'astro dev start'.
+- une base de données postgres nécessaire à Airflow
+- un webserver airflow
+- un scheduler airflow en mode LocalExecutor
 
-This command will spin up 4 Docker containers on your machine, each for a different Airflow component:
+accéder à l'interface d'Airflow en local [http://localhost:8080](http://localhost:8080) ; identifiant/mot de passe : airflow / airflow
 
-- Postgres: Airflow's Metadata Database
-- Webserver: The Airflow component responsible for rendering the Airflow UI
-- Scheduler: The Airflow component responsible for monitoring and triggering tasks
-- Triggerer: The Airflow component responsible for triggering deferred tasks
+## Mise à jour du scheduler et du webserver sur CleverCloud
 
-2. Verify that all 4 Docker containers were created by running 'docker ps'.
+Airflow tourne sur CleverCloud et utilise les services suivant:
 
-Note: Running 'astro dev start' will start your project with the Airflow Webserver exposed at port 8080 and Postgres exposed at port 5432. If you already have either of those ports allocated, you can either stop your existing Docker containers or change the port.
+- qfdmo-airflow-webserver (instance docker): interface d'airflow
+- qfdmo-airflow-scheduler (instance docker): scheduler d'airflow, fait tourner les dags car on est configuré en LocalExecutor
+- qfdmo-storage : S3 pour stocker les logs des dags
+- qfdmo-airflow-postgres : base de données nécessaire au fonctionnelment d'airflow
 
-3. Access the Airflow UI for your local Airflow project. To do so, go to http://localhost:8080/ and log in with 'admin' for both your Username and Password.
+## Pour déployer airflow
 
-You should also be able to access your Postgres Database at 'localhost:5432/postgres'.
+- configururer sa clé ssh dans l'interface de clevercloud (cf.doc clevercloud)
+- configurer un "remote repository" pour `qfdmo-airflow-webserver` (qu'on nommera clevercloud-webserver) pour ce repository
+- configurer un "remote repository" pour `qfdmo-airflow-scheduler` (qu'on nommera clevercloud-scheduler) pour ce repository
+- pousser le code souhaité sur la branch master des 2 repository ci-dessus
 
-Deploy Your Project to Astronomer
-=================================
+```sh
+git remote add clevercloud-webserver git+ssh://git@push-n3-par-clevercloud-customers.services.clever-cloud.com/app_efd2802a-1773-48e0-987e-7a6dffb929d1.git
+git remote add clevercloud-scheduler git+ssh://git@push-n3-par-clevercloud-customers.services.clever-cloud.com/app_fda5d606-44d9-485f-a1b4-1f7007bc3bec.git
+git push clevercloud-webserver mabranch:master
+git push clevercloud-scheduler mabranch:master
+```
 
-If you have an Astronomer account, pushing code to a Deployment on Astronomer is simple. For deploying instructions, refer to Astronomer documentation: https://docs.astronomer.io/cloud/deploy-code/
+Pour que les logs du scheduler soit stocké sur S3, les instances CleverCloud sont lancés avec les variables d'environnement:
 
-Contact
-=======
+```txt
+AIRFLOW__LOGGING__REMOTE_LOGGING=true
+AIRFLOW__LOGGING__REMOTE_BASE_LOG_FOLDER=s3://qfdmo-airflow-logs
+AIRFLOW__LOGGING__REMOTE_LOG_CONN_ID=s3logs
+AIRFLOW__LOGGING__ENCRYPT_S3_LOGS=false
+```
 
-The Astronomer CLI is maintained with love by the Astronomer team. To report a bug or suggest a change, reach out to our support.
+`s3logs` est une connection configuré dans l'interface d'Airflow
+
+![Configuration d'une connexion à Cellar (stockage s3 de clevercloud) dans Airflow](./img/airflow-s3-connection-configuration.png)
+
+Attention à ajouter le paramètre enfpoint_url pour le stockage Cellar de CleverCloud
+
+## Reste à faire
+
+- [ ] Aujourd'hui, on a 1 seule buket de log pour tout les environnement
+- [ ] Strategie pour publier des dag de preprod et de prod en les identifiant et en permettant des config différentes
