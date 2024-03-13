@@ -59,3 +59,15 @@ Scaleway
 - clone this repo (git clone https...)
 - `echo -e "AIRFLOW_UID=$(id -u)" > .env`
 - `docker compose up -d`
+
+
+
+
+
+## Reste à faire
+
+- [ ] Aujourd'hui, on a 1 seule buket de log pour tout les environnement
+- [ ] Strategie pour publier des dag de preprod et de prod en les identifiant et en permettant des config différentes
+
+# Mise à jour du scheduler et du webserver sur CleverCloud
+
