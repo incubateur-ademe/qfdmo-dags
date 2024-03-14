@@ -64,7 +64,7 @@ def write_data_to_postgres(**kwargs):
     task_output = kwargs['ti'].xcom_pull(task_ids='apply_corrections_propositionservice')
     df_ps_updated = task_output['df_ps_updated']
     df_sous_categories_updated = task_output['df_sous_categories_updated']
-    df_sous_categories_updated.rename(columns={"propositionservice_id": "displayedpropositionservice_id"},
+    df_sous_categories_updated.rename(columns={"propositionservice_id": "displayedpropositionservicetemp_id"},
                                       inplace=True)
 
     pg_hook = PostgresHook(postgres_conn_id='lvao-preprod')
@@ -77,14 +77,16 @@ def write_data_to_postgres(**kwargs):
     temp_table_name_ps = 'qfdmo_displayedpropositionservicetemp'
 
     original_table_name_pssc = 'qfdmo_displayedpropositionservice_sous_categories'
+    temp_table_name_pssc = 'qfdmo_displayedpropositionservicetemp_sous_categories'
+
 
     with engine.connect() as conn:
-        conn.execute(f'DELETE FROM {original_table_name_pssc}')
+        conn.execute(f'DELETE FROM {temp_table_name_pssc}')
         conn.execute(f'DELETE FROM {temp_table_name_ps}')
         conn.execute(f'DELETE FROM {temp_table_name_actor}')
 
-        df_sous_categories_updated[['displayedpropositionservice_id', 'souscategorieobjet_id']].to_sql(
-        original_table_name_pssc, engine,
+        df_sous_categories_updated[['displayedpropositionservicetemp_id', 'souscategorieobjet_id']].to_sql(
+        temp_table_name_pssc, engine,
         if_exists='append', index=False,
         method='multi',
         chunksize=1000)
@@ -114,6 +116,10 @@ def write_data_to_postgres(**kwargs):
         conn.execute(f'ALTER TABLE {original_table_name_ps} RENAME TO {original_table_name_ps}_old')
         conn.execute(f'ALTER TABLE {temp_table_name_ps} RENAME TO {original_table_name_ps}')
         conn.execute(f'ALTER TABLE {original_table_name_ps}_old RENAME TO {temp_table_name_ps}')
+
+        conn.execute(f'ALTER TABLE {original_table_name_pssc} RENAME TO {original_table_name_pssc}_old')
+        conn.execute(f'ALTER TABLE {temp_table_name_pssc} RENAME TO {original_table_name_pssc}')
+        conn.execute(f'ALTER TABLE {original_table_name_pssc}_old RENAME TO {temp_table_name_pssc}')
 
     print("Table swap completed successfully.")
 
