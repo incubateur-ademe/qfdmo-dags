@@ -76,12 +76,18 @@ def write_data_to_postgres(**kwargs):
     original_table_name_ps = 'qfdmo_displayedpropositionservice'
     temp_table_name_ps = 'qfdmo_displayedpropositionservicetemp'
 
-    original_table_name_pssc = 'qfdmo_displayedpropositionservicetemp_sous_categories'
+    original_table_name_pssc = 'qfdmo_displayedpropositionservice_sous_categories'
 
     with engine.connect() as conn:
         conn.execute(f'DELETE FROM {original_table_name_pssc}')
         conn.execute(f'DELETE FROM {temp_table_name_ps}')
         conn.execute(f'DELETE FROM {temp_table_name_actor}')
+
+        df_sous_categories_updated[['displayedpropositionservice_id', 'souscategorieobjet_id']].to_sql(
+        original_table_name_pssc, engine,
+        if_exists='append', index=False,
+        method='multi',
+        chunksize=1000)
 
         df_normalized_corrected_actors[['identifiant_unique', 'nom', 'adresse', 'adresse_complement',
                                         'code_postal', 'ville', 'url', 'email', 'location', 'telephone',
@@ -99,11 +105,7 @@ def write_data_to_postgres(**kwargs):
                                                                                     method='multi',
                                                                                     chunksize=1000)
 
-        df_sous_categories_updated[[ 'displayedpropositionservice_id', 'souscategorieobjet_id']].to_sql(
-            original_table_name_pssc, engine,
-            if_exists='append', index=False,
-            method='multi',
-            chunksize=1000)
+
 
         conn.execute(f'ALTER TABLE {original_table_name_actor} RENAME TO {original_table_name_actor}_old')
         conn.execute(f'ALTER TABLE {temp_table_name_actor} RENAME TO {original_table_name_actor}')
