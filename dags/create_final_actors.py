@@ -100,7 +100,7 @@ dag = DAG(
 t1 = PythonOperator(
     task_id='load_normalized_actors',
     python_callable=read_data_from_postgres,
-    op_kwargs={"table_name": "qfdmo_actors_processed"},
+    op_kwargs={"table_name": "qfdmo_acteur"},
     dag=dag,
 )
 
@@ -115,14 +115,14 @@ t1_bis = PythonOperator(
 t2 = PythonOperator(
     task_id='load_manual_actor_updates',
     python_callable=read_data_from_postgres,
-    op_kwargs={"table_name": "qfdmo_manual_actors_updates"},
+    op_kwargs={"table_name": "qfdmo_revisionacteur"},
     dag=dag,
 )
 
 t2_bis = PythonOperator(
     task_id='load_manual_propositionservice_updates',
     python_callable=read_data_from_postgres,
-    op_kwargs={"table_name": "qfdmo_manual_propositionservice_updates"},
+    op_kwargs={"table_name": "qfdmo_revisionpropositionservice"},
     dag=dag,
 )
 

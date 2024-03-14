@@ -2,10 +2,8 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.providers.postgres.hooks.postgres import PostgresHook
-import sys
 
-from utils.utils import load_table, normalize_nom, normalize_url, normalize_email, normalize_phone_number, \
-    apply_normalization, save_to_database
+from utils.utils import load_table, normalize_nom, apply_normalization, save_to_database
 
 
 def read_data_from_postgres():
@@ -24,14 +22,13 @@ def apply_address_normalization(**kwargs):
 
 def apply_other_normalizations(**kwargs):
     df = kwargs['ti'].xcom_pull(task_ids='BAN_normalization')
-    columns_to_exclude = ["identifiant_unique", "statut", "cree_le", "modifie_le"]
     normalization_map = {
-        "nom": normalize_nom,
-        "nom_commercial": normalize_nom,
-        "ville": normalize_nom,
-        "url": normalize_url,
-        "email": normalize_email,
-        "telephone": normalize_phone_number,
+        # "nom": normalize_nom,
+        # "nom_commercial": normalize_nom,
+        # "ville": normalize_nom,
+        # "url": normalize_url,
+        # "email": normalize_email,
+        # "telephone": normalize_phone_number,
     }
     df_cleaned = apply_normalization(df, normalization_map)
     return df_cleaned
