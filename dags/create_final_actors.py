@@ -1,10 +1,11 @@
 from datetime import datetime, timedelta
+
+import pandas as pd
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.providers.postgres.hooks.postgres import PostgresHook
-from sqlalchemy import MetaData
-import pandas as pd
-from utils.utils import load_table, save_to_database
+
+from utils.utils import load_table
 
 
 def read_data_from_postgres(**kwargs):
@@ -16,8 +17,8 @@ def read_data_from_postgres(**kwargs):
 
 
 def apply_corrections(**kwargs):
-    df_normalized_actors = kwargs['ti'].xcom_pull(task_ids='load_normalized_actors')
-    df_manual_actor_updates = kwargs['ti'].xcom_pull(task_ids='load_manual_actor_updates')
+    df_normalized_actors = kwargs['ti'].xcom_pull(task_ids='load_actors')
+    df_manual_actor_updates = kwargs['ti'].xcom_pull(task_ids='load_revision_actors')
 
     df_normalized_actors = df_normalized_actors.set_index('identifiant_unique')
     df_manual_actor_updates = df_manual_actor_updates.set_index('identifiant_unique')
@@ -26,48 +27,83 @@ def apply_corrections(**kwargs):
 
     return df_normalized_actors.reset_index()
 
+
 def apply_corrections_ps(**kwargs):
-    df_propositionservice = kwargs['ti'].xcom_pull(task_ids='read_imported_propositionservice')
-    df_manual_propositionservice_updates = kwargs['ti'].xcom_pull(task_ids='load_manual_propositionservice_updates')
+    df_propositionservice = kwargs['ti'].xcom_pull(task_ids='load_propositionservice')
+    df_manual_propositionservice_updates = kwargs['ti'].xcom_pull(task_ids='load_revision_propositionservice')
+    df_manual_propositionservice_updates = df_manual_propositionservice_updates.rename(
+        columns={'revision_acteur_id': 'acteur_id'})
+    df_ps_sous_categories = kwargs['ti'].xcom_pull(task_ids='load_ps_sous_categories')
+    df_manual_propositionservice_sous_categories_updates = kwargs['ti'].xcom_pull(
+        task_ids='load_revision_ps_sous_categories')
+    df_manual_propositionservice_sous_categories_updates = df_manual_propositionservice_sous_categories_updates.rename(
+        columns={'revisionpropositionservice_id': 'propositionservice_id'})
 
-    new_df = pd.concat([df_propositionservice, df_manual_propositionservice_updates]).drop_duplicates(
-        subset=['acteur_service_id', 'action_id', 'acteur_id'])
-    new_df['acteur_id'] = new_df['acteur_id'].fillna(new_df['revision_acteur_id'])
-    new_df.drop(columns=['revision_acteur_id'], inplace=True)
+    common_acteur_ids = \
+    df_propositionservice[df_propositionservice['acteur_id'].isin(df_manual_propositionservice_updates['acteur_id'])][
+        'acteur_id'].unique()
 
-    return new_df
+    df_ps_updated = pd.concat([df_propositionservice[~df_propositionservice['acteur_id'].isin(common_acteur_ids)],
+                               df_manual_propositionservice_updates], ignore_index=True)
+    rps_ids = df_manual_propositionservice_updates['id'].unique()
+    only_ps_ids = df_propositionservice[~df_propositionservice['acteur_id'].isin(common_acteur_ids)]['id'].unique()
 
+    matching_rpssc_rows = df_manual_propositionservice_sous_categories_updates[
+        df_manual_propositionservice_sous_categories_updates['propositionservice_id'].isin(rps_ids)]
+    matching_pssc_rows = df_ps_sous_categories[df_ps_sous_categories['propositionservice_id'].isin(only_ps_ids)]
+    df_sous_categories_updated = pd.concat([matching_rpssc_rows, matching_pssc_rows], ignore_index=True)
+
+    return {
+        'df_ps_updated': df_ps_updated,
+        'df_sous_categories_updated': df_sous_categories_updated
+    }
 
 
 def write_data_to_postgres(**kwargs):
-    df_normalized_corrected_actors = kwargs['ti'].xcom_pull(task_ids='apply_corrections')
-    df_proposition_services = kwargs['ti'].xcom_pull(task_ids='apply_corrections_ps')
+    df_normalized_corrected_actors = kwargs['ti'].xcom_pull(task_ids='apply_corrections_actors')
+    task_output = kwargs['ti'].xcom_pull(task_ids='apply_corrections_propositionservice')
+    df_ps_updated = task_output['df_ps_updated']
+    df_sous_categories_updated = task_output['df_sous_categories_updated']
+    df_sous_categories_updated.rename(columns={"propositionservice_id": "displayedpropositionservice_id"},
+                                      inplace=True)
+
     pg_hook = PostgresHook(postgres_conn_id='lvao-preprod')
     engine = pg_hook.get_sqlalchemy_engine()
-   
+
     original_table_name_actor = 'qfdmo_displayedacteur'
     temp_table_name_actor = 'qfdmo_displayedacteurtemp'
 
     original_table_name_ps = 'qfdmo_displayedpropositionservice'
     temp_table_name_ps = 'qfdmo_displayedpropositionservicetemp'
 
+    original_table_name_pssc = 'qfdmo_displayedpropositionservicetemp_sous_categories'
 
     with engine.connect() as conn:
+        conn.execute(f'DELETE FROM {original_table_name_pssc}')
         conn.execute(f'DELETE FROM {temp_table_name_ps}')
         conn.execute(f'DELETE FROM {temp_table_name_actor}')
 
-
         df_normalized_corrected_actors[['identifiant_unique', 'nom', 'adresse', 'adresse_complement',
-       'code_postal', 'ville', 'url', 'email', 'location', 'telephone',
-       'multi_base', 'nom_commercial', 'nom_officiel', 'manuel',
-       'label_reparacteur', 'siret', 'identifiant_externe', 'acteur_type_id',
-       'statut', 'source_id', 'cree_le', 'modifie_le', 'naf_principal',
-       'commentaires', 'horaires', 'description']].to_sql(temp_table_name_actor, engine, if_exists='append', index=False,
-                                              method='multi', chunksize=1000)
+                                        'code_postal', 'ville', 'url', 'email', 'location', 'telephone',
+                                        'multi_base', 'nom_commercial', 'nom_officiel', 'manuel',
+                                        'label_reparacteur', 'siret', 'identifiant_externe', 'acteur_type_id',
+                                        'statut', 'source_id', 'cree_le', 'modifie_le', 'naf_principal',
+                                        'commentaires', 'horaires', 'description']].to_sql(temp_table_name_actor,
+                                                                                           engine, if_exists='append',
+                                                                                           index=False,
+                                                                                           method='multi',
+                                                                                           chunksize=1000)
 
+        df_ps_updated[['id', 'acteur_service_id', 'action_id', 'acteur_id']].to_sql(temp_table_name_ps, engine,
+                                                                                    if_exists='append', index=False,
+                                                                                    method='multi',
+                                                                                    chunksize=1000)
 
-        df_proposition_services[['id', 'acteur_service_id', 'action_id', 'acteur_id']].to_sql(temp_table_name_ps, engine, if_exists='append', index=False, method='multi',
-                                      chunksize=1000)
+        df_sous_categories_updated[[ 'displayedpropositionservice_id', 'souscategorieobjet_id']].to_sql(
+            original_table_name_pssc, engine,
+            if_exists='append', index=False,
+            method='multi',
+            chunksize=1000)
 
         conn.execute(f'ALTER TABLE {original_table_name_actor} RENAME TO {original_table_name_actor}_old')
         conn.execute(f'ALTER TABLE {temp_table_name_actor} RENAME TO {original_table_name_actor}')
@@ -97,58 +133,69 @@ dag = DAG(
     schedule_interval=None,
 )
 
-t1 = PythonOperator(
-    task_id='load_normalized_actors',
+read_actors = PythonOperator(
+    task_id='load_actors',
     python_callable=read_data_from_postgres,
-    op_kwargs={"table_name": "qfdmo_actors_processed"},
+    op_kwargs={"table_name": "qfdmo_acteur"},
     dag=dag,
 )
 
-t1_bis = PythonOperator(
-    task_id='read_imported_propositionservice',
+read_ps = PythonOperator(
+    task_id='load_propositionservice',
     python_callable=read_data_from_postgres,
     op_kwargs={"table_name": "qfdmo_propositionservice"},
     dag=dag,
 )
 
-
-t2 = PythonOperator(
-    task_id='load_manual_actor_updates',
+read_revision_actor = PythonOperator(
+    task_id='load_revision_actors',
     python_callable=read_data_from_postgres,
-    op_kwargs={"table_name": "qfdmo_manual_actors_updates"},
+    op_kwargs={"table_name": "qfdmo_revisionacteur"},
     dag=dag,
 )
 
-t2_bis = PythonOperator(
-    task_id='load_manual_propositionservice_updates',
+read_revision_ps = PythonOperator(
+    task_id='load_revision_propositionservice',
     python_callable=read_data_from_postgres,
-    op_kwargs={"table_name": "qfdmo_manual_propositionservice_updates"},
+    op_kwargs={"table_name": "qfdmo_revisionpropositionservice"},
     dag=dag,
 )
 
+read_revision_sc = PythonOperator(
+    task_id='load_revision_ps_sous_categories',
+    python_callable=read_data_from_postgres,
+    op_kwargs={"table_name": "qfdmo_revisionpropositionservice_sous_categories"},
+    dag=dag,
+)
 
-t3 = PythonOperator(
-    task_id='apply_corrections',
+read_sc = PythonOperator(
+    task_id='load_ps_sous_categories',
+    python_callable=read_data_from_postgres,
+    op_kwargs={"table_name": "qfdmo_propositionservice_sous_categories"},
+    dag=dag,
+)
+
+apply_corr = PythonOperator(
+    task_id='apply_corrections_actors',
     python_callable=apply_corrections,
     provide_context=True,
     dag=dag,
 )
 
-t3_bis = PythonOperator(
-    task_id='apply_corrections_ps',
+apply_corr_ps = PythonOperator(
+    task_id='apply_corrections_propositionservice',
     python_callable=apply_corrections_ps,
     provide_context=True,
     dag=dag,
 )
 
-t4 = PythonOperator(
+write_pos = PythonOperator(
     task_id='write_data_to_postgres',
     python_callable=write_data_to_postgres,
     provide_context=True,
     dag=dag,
 )
 
-[t1, t2 ] >> t3
-[t1_bis, t2_bis] >> t3_bis
-[t3, t3_bis] >> t4
-
+[read_actors, read_revision_actor] >> apply_corr
+[read_ps, read_revision_ps, read_sc, read_revision_sc] >> apply_corr_ps
+[apply_corr, apply_corr_ps] >> write_pos

@@ -17,24 +17,24 @@ def read_data_from_postgres():
 
 def apply_address_normalization(**kwargs):
     df = kwargs['ti'].xcom_pull(task_ids='read_imported_actors')
-    normalization_map = {"address": normalize_nom, "adresse_complement": normalize_nom}
-    df_normalized = apply_normalization(df, normalization_map)
-    return df_normalized
+   # normalization_map = {"address": normalize_nom, "adresse_complement": normalize_nom}
+    #df_normalized = apply_normalization(df, normalization_map)
+    return df
 
 
 def apply_other_normalizations(**kwargs):
     df = kwargs['ti'].xcom_pull(task_ids='BAN_normalization')
     columns_to_exclude = ["identifiant_unique", "statut", "cree_le", "modifie_le"]
-    normalization_map = {
-        "nom": normalize_nom,
-        "nom_commercial": normalize_nom,
-        "ville": normalize_nom,
-        "url": normalize_url,
-        "email": normalize_email,
-        "telephone": normalize_phone_number,
-    }
-    df_cleaned = apply_normalization(df, normalization_map)
-    return df_cleaned
+  #  normalization_map = {
+   #     "nom": normalize_nom,
+   #     "nom_commercial": normalize_nom,
+    #    "ville": normalize_nom,
+   #     "url": normalize_url,
+   #     "email": normalize_email,
+  #      "telephone": normalize_phone_number,
+  #  }
+  #  df_cleaned = apply_normalization(df, normalization_map)
+    return df
 
 
 def write_data_to_postgres(**kwargs):
