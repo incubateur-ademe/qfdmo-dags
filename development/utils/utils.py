@@ -1,5 +1,6 @@
 import io
 import csv
+from pathlib import Path
 from urllib.parse import urlparse
 
 import requests
@@ -242,3 +243,12 @@ def find_differences(
         ],
     )
     return df_differences
+
+def get_environment(dag_filepath):
+    return Path(dag_filepath).parent.name
+
+def get_dag_name(dag_filepath, dag_name):
+    return get_environment(dag_filepath) + '_' + dag_name
+
+def get_db_conn_id(dag_filepath):
+    return 'lvao-' + get_environment(dag_filepath)

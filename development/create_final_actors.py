@@ -2,14 +2,13 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.providers.postgres.hooks.postgres import PostgresHook
-from sqlalchemy import MetaData
 import pandas as pd
-from utils.utils import load_table, save_to_database
+from utils.utils import load_table, get_db_conn_id, get_dag_name
 
 
 def read_data_from_postgres(**kwargs):
     table_name = kwargs["table_name"]
-    pg_hook = PostgresHook(postgres_conn_id='lvao-preprod')
+    pg_hook = PostgresHook(postgres_conn_id=get_db_conn_id(__file__))
     engine = pg_hook.get_sqlalchemy_engine()
     df = load_table(table_name, engine)
     return df
@@ -42,7 +41,7 @@ def apply_corrections_ps(**kwargs):
 def write_data_to_postgres(**kwargs):
     df_normalized_corrected_actors = kwargs['ti'].xcom_pull(task_ids='apply_corrections')
     df_proposition_services = kwargs['ti'].xcom_pull(task_ids='apply_corrections_ps')
-    pg_hook = PostgresHook(postgres_conn_id='lvao-preprod')
+    pg_hook = PostgresHook(postgres_conn_id=get_db_conn_id(__file__))
     engine = pg_hook.get_sqlalchemy_engine()
    
     original_table_name_actor = 'qfdmo_displayedacteur'
@@ -91,7 +90,7 @@ default_args = {
 }
 
 dag = DAG(
-    'create_displayed_actors_and_propositionservice',
+    get_dag_name(__file__, 'create_displayed_actors_and_propositionservice'),
     default_args=default_args,
     description='DAG for applying correction on normalized actors and propositionservice',
     schedule_interval=None,

@@ -5,11 +5,10 @@ from airflow.providers.postgres.hooks.postgres import PostgresHook
 import sys
 
 from utils.utils import load_table, normalize_nom, normalize_url, normalize_email, normalize_phone_number, \
-    apply_normalization, save_to_database
-
+    apply_normalization, save_to_database, get_db_conn_id, get_dag_name
 
 def read_data_from_postgres():
-    pg_hook = PostgresHook(postgres_conn_id='lvao-preprod')
+    pg_hook = PostgresHook(postgres_conn_id=get_db_conn_id(__file__))
     engine = pg_hook.get_sqlalchemy_engine()
     df = load_table("qfdmo_acteur", engine)
     return df
@@ -39,7 +38,7 @@ def apply_other_normalizations(**kwargs):
 
 def write_data_to_postgres(**kwargs):
     df_cleaned = kwargs['ti'].xcom_pull(task_ids='other_normalizations')
-    pg_hook = PostgresHook(postgres_conn_id='lvao-preprod')
+    pg_hook = PostgresHook(postgres_conn_id=get_db_conn_id(__file__))
     engine = pg_hook.get_sqlalchemy_engine()
     save_to_database(df_cleaned, "qfdmo_actors_processed", engine)
 
@@ -55,7 +54,7 @@ default_args = {
 }
 
 dag = DAG(
-    'imported_actors_preprocessing',
+    get_dag_name(__file__, 'imported_actors_preprocessing'),
     default_args=default_args,
     description='DAG for normalizing and saving LVAO actors',
     schedule_interval=None,
