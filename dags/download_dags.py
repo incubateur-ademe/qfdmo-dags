@@ -6,10 +6,6 @@ from airflow.operators.python import PythonOperator
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 import airflow.configuration as conf
 
-
-
-
-import os
 from airflow.models import DagBag
 dags_dirs = ['preprod', 'production']
 
