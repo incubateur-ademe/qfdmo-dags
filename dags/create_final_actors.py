@@ -64,7 +64,7 @@ def write_data_to_postgres(**kwargs):
     task_output = kwargs['ti'].xcom_pull(task_ids='apply_corrections_propositionservice')
     df_ps_updated = task_output['df_ps_updated']
     df_sous_categories_updated = task_output['df_sous_categories_updated']
-    df_sous_categories_updated.rename(columns={"propositionservice_id": "displayedpropositionservicetemp_id"},
+    df_sous_categories_updated.rename(columns={"propositionservice_id": "displayedpropositionservice_id"},
                                       inplace=True)
 
     pg_hook = PostgresHook(postgres_conn_id='lvao-preprod')
@@ -85,12 +85,6 @@ def write_data_to_postgres(**kwargs):
         conn.execute(f'DELETE FROM {temp_table_name_ps}')
         conn.execute(f'DELETE FROM {temp_table_name_actor}')
 
-        df_sous_categories_updated[['displayedpropositionservicetemp_id', 'souscategorieobjet_id']].to_sql(
-        temp_table_name_pssc, engine,
-        if_exists='append', index=False,
-        method='multi',
-        chunksize=1000)
-
         df_normalized_corrected_actors[['identifiant_unique', 'nom', 'adresse', 'adresse_complement',
                                         'code_postal', 'ville', 'url', 'email', 'location', 'telephone',
                                         'multi_base', 'nom_commercial', 'nom_officiel', 'manuel',
@@ -107,6 +101,11 @@ def write_data_to_postgres(**kwargs):
                                                                                     method='multi',
                                                                                     chunksize=1000)
 
+        df_sous_categories_updated[['displayedpropositionservice_id', 'souscategorieobjet_id']].to_sql(
+        temp_table_name_pssc, engine,
+        if_exists='append', index=False,
+        method='multi',
+        chunksize=1000)
 
 
         conn.execute(f'ALTER TABLE {original_table_name_actor} RENAME TO {original_table_name_actor}_old')
