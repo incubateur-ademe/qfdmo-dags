@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.providers.postgres.hooks.postgres import PostgresHook
-
+import pandas as pd
 from utils.utils import load_table, normalize_nom, normalize_url, normalize_phone_number, normalize_email, \
     find_differences, save_to_database
 
@@ -14,6 +14,17 @@ def read_data_from_postgres(**kwargs):
     df = load_table(table_name, engine)
     return df
 
+def normalize_and_find_differences_ps(**kwargs):
+    ti = kwargs['ti']
+    df_rps = ti.xcom_pull(task_ids='load_imported_revision_propositionservice')
+    df_rps = df_rps.rename(columns={'revision_acteur_id': 'acteur_id'})
+    return df_rps[['id', 'acteur_service_id', 'action_id', 'acteur_id']].rename(columns={'id_x': 'id'})
+
+def normalize_and_find_differences_sous_categories(**kwargs):
+    ti = kwargs['ti']
+    df_rpssc = ti.xcom_pull(task_ids='load_imported_revision_propositionservice_sous_categories')
+    df_rpssc = df_rpssc.rename(columns={'revisionpropositionservice_id': 'propositionservice_id'})
+    return df_rpssc
 
 def normalize_and_find_differences(**kwargs):
     ti = kwargs['ti']
@@ -22,14 +33,14 @@ def normalize_and_find_differences(**kwargs):
 
     columns_to_exclude = ["identifiant_unique", "statut", "cree_le", "modifie_le"]
     normalization_map = {
-        "nom": normalize_nom,
-        "nom_commercial": normalize_nom,
-        "ville": normalize_nom,
-        "url": normalize_url,
-        "adresse": normalize_nom,
-        "adresse_complement": normalize_nom,
-        "email": normalize_email,
-        "telephone": normalize_phone_number,
+   #     "nom": normalize_nom,
+    #    "nom_commercial": normalize_nom,
+   #     "ville": normalize_nom,
+   #     "url": normalize_url,
+   #     "adresse": normalize_nom,
+    #    "adresse_complement": normalize_nom,
+   #     "email": normalize_email,
+   #     "telephone": normalize_phone_number,
     }
 
     df_differences = find_differences(df_act, df_rev_act, columns_to_exclude, normalization_map)
@@ -39,9 +50,28 @@ def normalize_and_find_differences(**kwargs):
 
 def save_results_to_database(**kwargs):
     df_cleaned = kwargs['ti'].xcom_pull(task_ids='normalize_and_find_differences')
+    df_ps_cleaned = kwargs['ti'].xcom_pull(task_ids='normalize_and_find_differences_ps')
+    df_souscategories_cleaned = kwargs['ti'].xcom_pull(task_ids='normalize_and_find_differences_sous_categories')
+
     pg_hook = PostgresHook(postgres_conn_id='lvao-preprod')
     engine = pg_hook.get_sqlalchemy_engine()
-    save_to_database(df_cleaned, "qfdmo_correctionequipeacteur", engine)
+    temp_table_name_actor = "qfdmo_manual_actors_updates"
+    temp_table_name_ps = "qfdmo_manual_propositionservice_updates"
+    temp_table_name_souscategories = "qfdmo_manual_propositionservice_sous_categories_updates"
+
+    with engine.connect() as conn:
+
+
+        df_cleaned.to_sql(temp_table_name_actor, engine, if_exists="replace", index=False)
+
+
+        df_ps_cleaned.to_sql(temp_table_name_ps, engine,
+        if_exists = "replace", index = False
+        )
+
+        df_souscategories_cleaned.to_sql(temp_table_name_souscategories, engine,
+        if_exists = "replace", index = False
+        )
 
 
 default_args = {
@@ -60,6 +90,23 @@ dag = DAG(
     description='DAG for manually updated LVAO actors data',
     schedule_interval=None,
 )
+
+
+
+t2_3 = PythonOperator(
+    task_id='load_imported_revision_propositionservice_sous_categories',
+    python_callable=read_data_from_postgres,
+    op_kwargs={"table_name": "qfdmo_revisionpropositionservice_sous_categories"},
+    dag=dag,
+)
+
+t2_bis = PythonOperator(
+    task_id='load_imported_revision_propositionservice',
+    python_callable=read_data_from_postgres,
+    op_kwargs={"table_name": "qfdmo_revisionpropositionservice"},
+    dag=dag,
+)
+
 
 t1 = PythonOperator(
     task_id='load_imported_actors',
@@ -82,6 +129,19 @@ t3 = PythonOperator(
     dag=dag,
 )
 
+t3_bis = PythonOperator(
+    task_id='normalize_and_find_differences_ps',
+    python_callable=normalize_and_find_differences_ps,
+    provide_context=True,
+    dag=dag,
+)
+t3_3 = PythonOperator(
+    task_id='normalize_and_find_differences_sous_categories',
+    python_callable=normalize_and_find_differences_sous_categories,
+    provide_context=True,
+    dag=dag,
+)
+
 t4 = PythonOperator(
     task_id='save_results_to_database',
     python_callable=save_results_to_database,
@@ -89,7 +149,10 @@ t4 = PythonOperator(
     dag=dag,
 )
 
-[t1, t2] >> t3 >> t4
+[t1, t2] >> t3
+t2_bis >> t3_bis >> t4
+t2_3 >> t3_3 >> t4
+t3 >> t4
 
 
 
