@@ -216,7 +216,7 @@ default_args = {
 }
 
 dag = DAG(
-    "PRODUCTION_apply_adresse_corections",
+    "PRODUCTION_apply_adresse_corrections",
     default_args=default_args,
     description="DAG for applying correction on normalized actors and propositionservice",
     schedule_interval=None,
