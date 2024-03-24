@@ -5,6 +5,7 @@ from airflow.models import DAG
 from airflow.operators.python_operator import PythonOperator, BranchPythonOperator
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from airflow.utils.dates import days_ago
+from sqlalchemy.exc import SQLAlchemyError
 
 default_args = {
     'owner': 'airflow',
@@ -63,9 +64,7 @@ def fetch_and_parse_data(**context):
 
 
 def write_data_to_postgres(**kwargs):
-    data_dict = kwargs["ti"].xcom_pull(
-        task_ids="fetch_and_parse_data"
-    )
+    data_dict = kwargs["ti"].xcom_pull(task_ids="fetch_and_parse_data")
     df_actors = data_dict['actors']
     df_pds = data_dict['pds']
     df_pdssc = data_dict['pds_sous_categories']
@@ -74,69 +73,53 @@ def write_data_to_postgres(**kwargs):
     pg_hook = PostgresHook(postgres_conn_id="lvao-preprod")
     engine = pg_hook.get_sqlalchemy_engine()
 
-    df_actors[
-        [
-            "identifiant_unique",
-            "nom",
-            "adresse",
-            "adresse_complement",
-            "code_postal",
-            "ville",
-            "url",
-            "email",
-            "location",
-            "telephone",
-            "multi_base",
-            "nom_commercial",
-            "manuel",
-            "label_reparacteur",
-            "siret",
-            "identifiant_externe",
-            "acteur_type_id",
-            "statut",
-            "source_id",
-            "cree_le",
-            "modifie_le",
-            "commentaires",
-            "horaires",
-        ]
+    try:
+        with engine.begin() as connection:
+            df_actors[
+                [
+                    "identifiant_unique", "nom", "adresse", "adresse_complement",
+                    "code_postal", "ville", "url", "email", "location", "telephone",
+                    "multi_base", "nom_commercial", "manuel", "label_reparacteur",
+                    "siret", "identifiant_externe", "acteur_type_id", "statut",
+                    "source_id", "cree_le", "modifie_le", "commentaires", "horaires",
+                ]
+            ].to_sql(
+                "qfdmo_sources_acteurs",
+                connection,
+                if_exists="append",
+                index=False,
+                method="multi",
+                chunksize=1000,
+            )
 
-    ].to_sql(
-        "qfdmo_sources_acteurs",
-        engine,
-        if_exists="append",
-        index=False,
-        method="multi",
-        chunksize=1000,
-    )
+            df_pds[["id", "acteur_service_id", "action_id", "acteur_id"]].to_sql(
+                "qfdmo_sources_propositionservice",
+                connection,
+                if_exists="append",
+                index=False,
+                method="multi",
+                chunksize=1000,
+            )
 
-    df_pds[["id", "acteur_service_id", "action_id", "acteur_id"]].to_sql(
-        "qfdmo_sources_propositionservice",
-        engine,
-        if_exists="append",
-        index=False,
-        method="multi",
-        chunksize=1000,
-    )
+            df_pdssc[["propositionservice_id", "souscategorieobjet_id"]].to_sql(
+                "qfdmo_sources_propositionservice_sous_categories",
+                connection,
+                if_exists="append",
+                index=False,
+                method="multi",
+                chunksize=1000,
+            )
 
-    df_pdssc[
-        ["propositionservice_id", "souscategorieobjet_id"]
-    ].to_sql(
-        "qfdmo_sources_propositionservice_sous_categories",
-        engine,
-        if_exists="append",
-        index=False,
-        method="multi",
-        chunksize=1000,
-    )
-    update_query = f"""
-        UPDATE qfdmo_dagrun
-        SET status = 'DONE'
-        WHERE run_id = '{dag_run_id}'
-        """
+            # Execute the update query within the same transaction
+            update_query = f"""
+                UPDATE qfdmo_dagrun
+                SET status = 'DONE'
+                WHERE run_id = '{dag_run_id}'
+                """
+            connection.execute(update_query)
 
-    with engine.connect() as connection:
-        connection.execute(update_query)
+    except SQLAlchemyError as e:
+        print(f"The transaction was rolled back: {e}")
 
 
 fetch_parse_task = PythonOperator(
