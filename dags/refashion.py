@@ -130,6 +130,7 @@ def serialize_to_json(**kwargs):
                 "modifie_le",
                 "commentaires",
                 "horaires",
+                "proposition_services"
             ]].apply(lambda row: json.dumps(row.to_dict()), axis=1)
 
     return df_joined
@@ -284,7 +285,7 @@ create_proposition_services_sous_categories_task = PythonOperator(
 )
 
 write_data_task = PythonOperator(
-    task_id='write_data_into_postgresql',
+    task_id='write_data_to_validate_into_dagruns',
     python_callable=write_to_dagruns,
     dag=dag,
 )
