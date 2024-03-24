@@ -20,6 +20,7 @@ dag = DAG(
     description='Check for VALIDATE in qfdmo_dagrun and process qfdmo_dagrunchange',
     schedule_interval='*/5 * * * *',
     catchup=False,
+    max_active_runs=1
 )
 
 
@@ -37,6 +38,7 @@ def fetch_and_parse_data(**context):
     df_sql = pd.read_sql_query(
         "SELECT * FROM qfdmo_dagrunchange WHERE dag_run_id IN (SELECT run_id FROM qfdmo_dagrun WHERE status = 'TO_VALIDATE')",
         engine)
+    dag_run_id = df_sql['dag_run_id'].iloc[0]  # Using .iloc[0] for safer access
 
     normalized_dfs = df_sql['row_updates'].apply(pd.json_normalize)
     df_actors = pd.concat(normalized_dfs.tolist(), ignore_index=True)
@@ -55,7 +57,8 @@ def fetch_and_parse_data(**context):
     return {
         "actors": df_actors,
         "pds": df_pds[["id", "acteur_service_id", "action_id", "acteur_id"]],
-        "pds_sous_categories": df_pdssc[["propositionservice_id", "souscategorieobjet_id"]]
+        "pds_sous_categories": df_pdssc[["propositionservice_id", "souscategorieobjet_id"]],
+        "dag_run_id": dag_run_id
     }
 
 
@@ -66,6 +69,7 @@ def write_data_to_postgres(**kwargs):
     df_actors = data_dict['actors']
     df_pds = data_dict['pds']
     df_pdssc = data_dict['pds_sous_categories']
+    dag_run_id = data_dict['dag_run_id']
 
     pg_hook = PostgresHook(postgres_conn_id="lvao-preprod")
     engine = pg_hook.get_sqlalchemy_engine()
@@ -84,7 +88,6 @@ def write_data_to_postgres(**kwargs):
             "telephone",
             "multi_base",
             "nom_commercial",
-            "nom_officiel",
             "manuel",
             "label_reparacteur",
             "siret",
@@ -94,10 +97,8 @@ def write_data_to_postgres(**kwargs):
             "source_id",
             "cree_le",
             "modifie_le",
-            "naf_principal",
             "commentaires",
             "horaires",
-            "description",
         ]
 
     ].to_sql(
@@ -128,6 +129,14 @@ def write_data_to_postgres(**kwargs):
         method="multi",
         chunksize=1000,
     )
+    update_query = f"""
+        UPDATE qfdmo_dagrun
+        SET status = 'DONE'
+        WHERE run_id = '{dag_run_id}'
+        """
+
+    with engine.connect() as connection:
+        connection.execute(update_query)
 
 
 fetch_parse_task = PythonOperator(
