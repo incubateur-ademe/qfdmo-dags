@@ -119,7 +119,6 @@ def serialize_to_json(**kwargs):
                 "telephone",
                 "multi_base",
                 "nom_commercial",
-                "nom_officiel",
                 "manuel",
                 "label_reparacteur",
                 "siret",
@@ -129,10 +128,8 @@ def serialize_to_json(**kwargs):
                 "source_id",
                 "cree_le",
                 "modifie_le",
-                "naf_principal",
                 "commentaires",
                 "horaires",
-                "description",
             ]].apply(lambda row: json.dumps(row.to_dict()), axis=1)
 
     return df_joined
