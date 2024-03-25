@@ -39,7 +39,7 @@ def fetch_and_parse_data(**context):
     df_sql = pd.read_sql_query(
         "SELECT * FROM qfdmo_dagrunchange WHERE dag_run_id IN (SELECT run_id FROM qfdmo_dagrun WHERE status = 'TO_VALIDATE')",
         engine)
-    dag_run_id = df_sql['dag_run_id'].iloc[0]  # Using .iloc[0] for safer access
+    dag_run_id = df_sql['dag_run_id'].iloc[0]
 
     normalized_dfs = df_sql['row_updates'].apply(pd.json_normalize)
     df_actors = pd.concat(normalized_dfs.tolist(), ignore_index=True)
@@ -110,7 +110,6 @@ def write_data_to_postgres(**kwargs):
                 chunksize=1000,
             )
 
-            # Execute the update query within the same transaction
             update_query = f"""
                 UPDATE qfdmo_dagrun
                 SET status = 'DONE'
