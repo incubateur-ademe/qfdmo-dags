@@ -160,7 +160,7 @@ def write_to_dagruns(**kwargs):
             RETURNING ID;
         """, (
             dag_id,
-            1,
+            run_id,
             'TO_VALIDATE',
             json.dumps(metadata),
             current_date,
