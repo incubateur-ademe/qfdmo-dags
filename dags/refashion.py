@@ -117,9 +117,7 @@ def serialize_to_json(**kwargs):
                 "email",
                 "location",
                 "telephone",
-                "multi_base",
                 "nom_commercial",
-                "manuel",
                 "label_reparacteur",
                 "siret",
                 "identifiant_externe",
@@ -154,18 +152,24 @@ def write_to_dagruns(**kwargs):
     metadata = kwargs["ti"].xcom_pull(task_ids="create_actors")['metadata']
     pg_hook = PostgresHook(postgres_conn_id="lvao-preprod")
     engine = pg_hook.get_sqlalchemy_engine()
+    current_date = datetime.now()
     with engine.connect() as conn:
-        conn.execute("""
-            INSERT INTO qfdmo_dagrun (dag_id, run_id, status, meta_data)
-            VALUES (%s, %s, %s, %s);
+        result = conn.execute("""
+            INSERT INTO qfdmo_dagrun (dag_id, run_id, status, meta_data, created_date, updated_date)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING ID;
         """, (
             dag_id,
-            run_id,
+            1,
             'TO_VALIDATE',
-            json.dumps(metadata)
+            json.dumps(metadata),
+            current_date,
+            current_date
         ))
+        dag_run_id = result.fetchone()[0]
+
         df['change_type'] = 'CREATE'
-        df['dag_run_id'] =  run_id
+        df['dag_run_id'] =  dag_run_id
         df[['row_updates','dag_run_id','change_type']].to_sql(
             "qfdmo_dagrunchange",
             engine,
@@ -228,9 +232,7 @@ def create_actors(**kwargs):
             else:
                 df[new_col] = df[old_col]
     df['label_reparacteur'] = False
-    df['multi_base'] = False
     df['identifiant_unique'] = df.apply(lambda x: generate_unique_id(x, selected_columns=selected_columns), axis=1)
-    df['manuel'] = False
     df['statut'] = 'ACTIF'
     df['modifie_le'] = df['cree_le']
     df['siret'] = df['siret'].astype(str).apply(lambda x: x[:14])
