@@ -56,7 +56,18 @@ AIRFLOW__LOGGING__ENCRYPT_S3_LOGS=false
 
 Attention à ajouter le paramètre enfpoint_url pour le stockage Cellar de CleverCloud
 
+## déploiement des dags en preprod et en prod
+
+les dags sont déployés sur un bucket s3, dans un dossier au nom de l'environnement sur clevercloud :
+
+- s3://qfdmo-dags/preprod
+- s3://qfdmo-dags/production
+
+Airflow est déployé avecun seul DAG `doswnload_dags_from_s3` qui télécharge les dags de preprod et de production à partir des repo s3.
+
 ## Reste à faire
 
-- [ ] Aujourd'hui, on a 1 seule buket de log pour tout les environnement
+- [ ] Aujourd'hui, on a 1 seule bucket de log pour tout les environnements
 - [ ] Strategie pour publier des dag de preprod et de prod en les identifiant et en permettant des config différentes
+- [ ] Déployer les dags sur le s3 de preprod quand on pousse le code dans la branche main
+- [ ] Déployer les dags sur le s3 de production quand on tag le repo avec un tags de release (format vx.y.z)

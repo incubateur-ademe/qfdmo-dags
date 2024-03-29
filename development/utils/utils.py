@@ -1,10 +1,11 @@
-import io
 import csv
+import io
+import re
+from pathlib import Path
 from urllib.parse import urlparse
 
-import requests
 import pandas as pd
-import re
+import requests
 
 
 def send_batch_to_api(batch):
@@ -13,7 +14,9 @@ def send_batch_to_api(batch):
     """
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["identifiant_unique", "adresse", "adresse_complement", "code_postal", "ville"])
+    writer.writerow(
+        ["identifiant_unique", "adresse", "adresse_complement", "code_postal", "ville"]
+    )
     for element in batch:
         row = element.values()
         writer.writerow(row)
@@ -21,7 +24,10 @@ def send_batch_to_api(batch):
     response = requests.post(
         "https://api-adresse.data.gouv.fr/search/csv/",
         files={"data": output.getvalue()},
-        data={"columns": ["adresse", "ville", "adresse_complement"], "postcode": "code_postal"},
+        data={
+            "columns": ["adresse", "ville", "adresse_complement"],
+            "postcode": "code_postal",
+        },
     )
     reader = csv.DictReader(io.StringIO(response.text))
     return [row for row in reader]
@@ -81,9 +87,17 @@ def normalize_address(df, batch_size=10000):
         end_idx = start_idx + batch_size
 
         # Extract relevant columns for address normalization
-        address_data = df.loc[start_idx:end_idx,
-                       ["identifiant_unique", "adresse", "adresse_complement", "code_postal", "ville"]]
-        address_list = address_data.to_dict(orient='records')
+        address_data = df.loc[
+            start_idx:end_idx,
+            [
+                "identifiant_unique",
+                "adresse",
+                "adresse_complement",
+                "code_postal",
+                "ville",
+            ],
+        ]
+        address_list = address_data.to_dict(orient="records")
 
         # Send data to Ban API and receive normalized data
         normalized_data = send_batch_to_api(address_list)
@@ -185,9 +199,7 @@ def normalize_url(url):
         return None
 
 
-def find_differences(
-        df_act, df_rev_act, columns_to_exclude, normalization_map
-):
+def find_differences(df_act, df_rev_act, columns_to_exclude, normalization_map):
     # Join the DataFrames on 'identifiant_unique'
     df_merged = pd.merge(
         df_act, df_rev_act, on="identifiant_unique", suffixes=("_act", "_rev_act")
@@ -223,9 +235,9 @@ def find_differences(
 
             # Create masks for non-empty and differing values
             mask_non_empty = (
-                    df_merged[col_rev_act].notnull()
-                    & (df_merged[col_act] != "")
-                    & (df_merged[col_rev_act] != "")
+                df_merged[col_rev_act].notnull()
+                & (df_merged[col_act] != "")
+                & (df_merged[col_rev_act] != "")
             )
             mask_different = df_merged[col_act] != df_merged[col_rev_act]
 
@@ -237,8 +249,18 @@ def find_differences(
     # Remove rows where all elements are None (no differences found)
     df_differences = df_differences.dropna(
         how="all",
-        subset=[
-            col for col in df_differences.columns if col != "identifiant_unique"
-        ],
+        subset=[col for col in df_differences.columns if col != "identifiant_unique"],
     )
     return df_differences
+
+
+def get_environment(dag_filepath):
+    return Path(dag_filepath).parent.name
+
+
+def get_dag_name(dag_filepath, dag_name):
+    return get_environment(dag_filepath) + "_" + dag_name
+
+
+def get_db_conn_id(dag_filepath):
+    return "lvao-" + get_environment(dag_filepath)

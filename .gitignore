@@ -6,3 +6,5 @@ airflow_settings.yaml
 __pycache__/
 astro
 logs
+dags/preprod/
+dags/production/
