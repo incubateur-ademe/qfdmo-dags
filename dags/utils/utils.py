@@ -1,12 +1,57 @@
 import io
 import csv
 from urllib.parse import urlparse
-
+from shapely.geometry import Point
+from shapely import wkb
 import requests
 import pandas as pd
 import re
 
 
+def transform_location(longitude, latitude):
+    point = Point(longitude, latitude)
+
+    transformed_location_binary = wkb.dumps(point)
+    transformed_location_hex = transformed_location_binary.hex()
+
+    return transformed_location_hex
+
+
+def transform_ecoorganisme(value, df_sources):
+    id_value = df_sources.loc[df_sources['nom'].str.lower() == value.lower(), 'id'].values[0] if any(
+        df_sources['nom'].str.lower() == value.lower()) else None
+    return id_value
+
+
+def extract_details(row):
+    pattern = re.compile(r'\b(\d{5})\s+(.*)')
+
+    address = None
+    postal_code = None
+    city = None
+    if pd.isnull(row['adresse_format_ban']):
+        return pd.Series([None, None, None])
+
+    # Ensure adress_ban is treated as a string
+    adress_ban = str(row['adresse_format_ban'])
+
+    # Search for the pattern
+    match = pattern.search(adress_ban)
+    if match:
+        postal_code = match.group(1)
+        city = match.group(2)
+        address = adress_ban[:match.start()].strip()
+
+    return pd.Series([address, postal_code, city])
+
+
+def transform_location(longitude, latitude):
+    point = Point(longitude, latitude)
+
+    transformed_location_binary = wkb.dumps(point)
+    transformed_location_hex = transformed_location_binary.hex()
+
+    return transformed_location_hex
 def send_batch_to_api(batch):
     """
     Send a batch of CSV lines to the geocoding API and return the response.
