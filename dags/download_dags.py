@@ -10,25 +10,22 @@ from airflow.models import DagBag
 from airflow.operators.python import PythonOperator
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 
-dags_dirs = ["preprod", "production"]
-
 
 def download_dags_from_s3():
+    dags_dirs = ["preprod", "production"]
     dags_folder = conf.get("core", "dags_folder")
-    if (
-        decouple.config("ENVIRONMENT") is not None
-        and decouple.config("ENVIRONMENT") == "DEVELOPMENT"
-    ):
-        dags_dirs = ["development"]
+    local_dags_folder = decouple.config("LOCAL_DAGS_FOLDER", cast=str, default="")
+    if local_dags_folder:
+        environment = "development"
+        dags_dirs = [environment]
         logging.warning("Skipping download_dags_from_s3 in development environment")
         logging.warning(f"Copying dags from development to {dags_folder}")
         home = Path(dags_folder).parent
         # copy all from HOME/development to dags_folder/development
-        for subdir in dags_dirs:
-            source = Path(home, subdir)
-            destination = Path(dags_folder, subdir)
-            shutil.rmtree(destination, ignore_errors=True)
-            shutil.copytree(source, destination)
+        source = Path(str(local_dags_folder))
+        destination = Path(dags_folder, environment)
+        shutil.rmtree(destination, ignore_errors=True)
+        shutil.copytree(source, destination)
     else:
         s3_hook = S3Hook(aws_conn_id="s3dags")
         bucket_name = "qfdmo-airflow-dags"
