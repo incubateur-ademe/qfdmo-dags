@@ -14,10 +14,10 @@ x-airflow-common:
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
     AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session'
     # Uncomment the next 4 lines to store logs in S3
-    AIRFLOW__LOGGING__REMOTE_LOGGING: 'true'
-    AIRFLOW__LOGGING__REMOTE_BASE_LOG_FOLDER: "s3://qfdmo-airflow-logs"
-    AIRFLOW__LOGGING__REMOTE_LOG_CONN_ID: 's3logs'
-    AIRFLOW__LOGGING__ENCRYPT_S3_LOGS: "false"
+    # AIRFLOW__LOGGING__REMOTE_LOGGING: 'true'
+    # AIRFLOW__LOGGING__REMOTE_BASE_LOG_FOLDER: "s3://qfdmo-airflow-logs"
+    # AIRFLOW__LOGGING__REMOTE_LOG_CONN_ID: 's3logs'
+    # AIRFLOW__LOGGING__ENCRYPT_S3_LOGS: "false"
     AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
     # WARNING: Use _PIP_ADDITIONAL_REQUIREMENTS option ONLY for a quick checks
     # for other purpose (development, test and especially production usage) build/extend Airflow image.
@@ -27,7 +27,7 @@ x-airflow-common:
     - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
     - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
     - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
-    - ~/workspace/beta.gouv.fr/qfdmo-dags/development:/opt/airflow/development
+    - $AIRFLOW_DAGS_LOCAL_FOLDER:/opt/airflow/development
   user: "${AIRFLOW_UID:-50000}:0"
   extra_hosts:
     - "host.docker.internal:host-gateway"
