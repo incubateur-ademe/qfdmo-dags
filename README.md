@@ -63,9 +63,12 @@ les dags sont déployés sur un bucket s3, dans un dossier au nom de l'environne
 - s3://qfdmo-dags/preprod
 - s3://qfdmo-dags/production
 
-Cette copie est faite via la CI/CD github action
+Cette copie est faite via la CI/CD github action.
+Les DAGs sont développés et déployés via le projet [QueFaireDeMesObjets](https://github.com/incubateur-ademe/quefairedemesobjets).
 
-Airflow est déployé avecun seul DAG `doswnload_dags_from_s3` qui télécharge les dags de preprod et de production à partir des repo s3.
+Airflow est déployé avec un seul DAG `download_dags_from_s3` qui télécharge les dags de preprod et de production à partir des repo s3.
+
+A chaque nouovelle release des dags en preprod et en prod, le dags `download_dags_from_s3` doit-être executé à partir de l'interface Airflow.
 
 ### Déploiement des DAGs en environnement de développement
 
