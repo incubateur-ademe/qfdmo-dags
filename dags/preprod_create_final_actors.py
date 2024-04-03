@@ -138,7 +138,8 @@ def write_data_to_postgres(**kwargs):
                 "modifie_le",
                 "naf_principal",
                 "commentaires",
-                "horaires",
+                "horaires_osm",
+                "horaires_description",
                 "description",
             ]
         ].to_sql(
