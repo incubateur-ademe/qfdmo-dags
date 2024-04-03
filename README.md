@@ -72,7 +72,7 @@ Airflow est déployé avecun seul DAG `doswnload_dags_from_s3` qui télécharge 
 En environnement de développement, on précisera l'emplacement des DAGs avec la variable d'environnement AIRFLOW_DAGS_LOCAL_FOLDER avant le lancement des container docker. Par exemple :
 
 ```sh
-export AIRFLOW_DAGS_LOCAL_FOLDER=$HOME/workspace/beta.gouv.fr/qfdmo-dags/development
+export AIRFLOW_DAGS_LOCAL_FOLDER=$HOME/workspace/beta.gouv.fr/quefairedemesobjets/dags
 ```
 
 Ce dossier est monté dans les containers docker à l'emplacement `/opt/airflow/development`
