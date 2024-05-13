@@ -2,3 +2,4 @@
 pandas
 apache-airflow-providers-postgres
 python-decouple
+ratelimiter
