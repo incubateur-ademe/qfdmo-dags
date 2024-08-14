@@ -10,3 +10,4 @@ dags/development/
 dags/preprod/
 dags/production/
 dags/utils/
+pgdata/
