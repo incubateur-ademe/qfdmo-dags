@@ -2,22 +2,6 @@
 
 Ce projet contient l'environnement d'execution d'Airflow
 
-## Lancement de Airflow en local
-
-Executer docker compose:
-
-```sh
-docker compose up
-```
-
-docker compose lancera :
-
-- une base de données postgres nécessaire à Airflow
-- un webserver airflow
-- un scheduler airflow en mode LocalExecutor
-
-accéder à l'interface d'Airflow en local [http://localhost:8080](http://localhost:8080) ; identifiant/mot de passe : airflow / airflow
-
 ## Mise à jour du scheduler et du webserver sur CleverCloud
 
 Airflow tourne sur CleverCloud et utilise les services suivant:
@@ -83,11 +67,19 @@ Puis copier les variable d'environnement airflow-dags/.env.template vers airflow
 cp .env.template .env
 ```
 
-Enfin, lancer les containers docker
+Enfin, lancer les containers docker avec docker compose:
 
 ```sh
-docker compose up
+docker compose -f docker-compose.airflow.yaml up
 ```
+
+docker compose lancera :
+
+- une base de données postgres nécessaire à Airflow
+- un webserver airflow
+- un scheduler airflow en mode LocalExecutor
+
+accéder à l'interface d'Airflow en local [http://localhost:8080](http://localhost:8080) ; identifiant/mot de passe : airflow / airflow
 
 ## Reste à faire
 

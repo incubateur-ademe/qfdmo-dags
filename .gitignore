@@ -10,5 +10,5 @@ airflow-dags/development/
 airflow-dags/preprod/
 airflow-dags/production/
 airflow-dags/utils/
-pgdata/
+airflow-pgdata/
 *.bak
