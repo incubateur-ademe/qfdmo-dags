@@ -1,6 +1,6 @@
 # Que faire de mes objets - Data Platform
 
-Ce projet contient l'environnement d'execution d'Airflow et les DAGs qui sont exécutés sur Airflow
+Ce projet contient l'environnement d'execution d'Airflow
 
 ## Lancement de Airflow en local
 
@@ -77,7 +77,7 @@ export AIRFLOW_DAGS_LOCAL_FOLDER=$HOME/workspace/beta.gouv.fr/quefairedemesobjet
 
 Ce dossier est monté dans les containers docker à l'emplacement `/opt/airflow/development`
 
-Puis copier les variable d'environnement dags/.env.template vers dags/.env
+Puis copier les variable d'environnement airflow-dags/.env.template vers airflow-dags/.env
 
 ```sh
 cp .env.template .env
@@ -92,6 +92,3 @@ docker compose up
 ## Reste à faire
 
 - [ ] Aujourd'hui, on a 1 seule bucket de log pour tout les environnements
-- [ ] Strategie pour publier des dags de preprod et de prod en les identifiant et en permettant des config différentes
-- [ ] Déployer les dags sur le s3 de preprod quand on pousse le code dans la branche main
-- [ ] Déployer les dags sur le s3 de production quand on tag le repo avec un tags de release (format vx.y.z)
