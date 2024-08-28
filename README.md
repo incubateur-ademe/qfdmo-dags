@@ -1,22 +1,6 @@
 # Que faire de mes objets - Data Platform
 
-Ce projet contient l'environnement d'execution d'Airflow et les DAGs qui sont exécutés sur Airflow
-
-## Lancement de Airflow en local
-
-Executer docker compose:
-
-```sh
-docker compose up
-```
-
-docker compose lancera :
-
-- une base de données postgres nécessaire à Airflow
-- un webserver airflow
-- un scheduler airflow en mode LocalExecutor
-
-accéder à l'interface d'Airflow en local [http://localhost:8080](http://localhost:8080) ; identifiant/mot de passe : airflow / airflow
+Ce projet contient l'environnement d'execution d'Airflow
 
 ## Mise à jour du scheduler et du webserver sur CleverCloud
 
@@ -77,21 +61,26 @@ export AIRFLOW_DAGS_LOCAL_FOLDER=$HOME/workspace/beta.gouv.fr/quefairedemesobjet
 
 Ce dossier est monté dans les containers docker à l'emplacement `/opt/airflow/development`
 
-Puis copier les variable d'environnement dags/.env.template vers dags/.env
+Puis copier les variable d'environnement airflow-dags/.env.template vers airflow-dags/.env
 
 ```sh
 cp .env.template .env
 ```
 
-Enfin, lancer les containers docker
+Enfin, lancer les containers docker avec docker compose:
 
 ```sh
-docker compose up
+docker compose -f docker-compose.airflow.yaml up
 ```
+
+docker compose lancera :
+
+- une base de données postgres nécessaire à Airflow
+- un webserver airflow
+- un scheduler airflow en mode LocalExecutor
+
+accéder à l'interface d'Airflow en local [http://localhost:8080](http://localhost:8080) ; identifiant/mot de passe : airflow / airflow
 
 ## Reste à faire
 
 - [ ] Aujourd'hui, on a 1 seule bucket de log pour tout les environnements
-- [ ] Strategie pour publier des dags de preprod et de prod en les identifiant et en permettant des config différentes
-- [ ] Déployer les dags sur le s3 de preprod quand on pousse le code dans la branche main
-- [ ] Déployer les dags sur le s3 de production quand on tag le repo avec un tags de release (format vx.y.z)
