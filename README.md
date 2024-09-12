@@ -1,5 +1,7 @@
 # Que faire de mes objets - Data Platform
 
+**DEPRECIATION : ce repo est désormais déprécié, le code a été transféré dans le mono repo [incubateur-ademe/quefairedemesobjets](https://github.com/incubateur-ademe/quefairedemesobjets/) pour plus de cohérence des mises en production et de la gestion des dépendances**
+
 Ce projet contient l'environnement d'execution d'Airflow
 
 ## Mise à jour du scheduler et du webserver sur CleverCloud
